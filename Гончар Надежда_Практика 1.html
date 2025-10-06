@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Анализ выручки по городам (топ 10)</title>
+<style>
+:root {
+  --bg: #f5f7fa;
+  --card: #fff;
+  --accent: #0078d7;
+  --muted: #6b7280;
+  --error: #e74c3c;
+  --success: #27ae60;
+  --warning: #f39c12;
+}
+body {
+  font-family: "Segoe UI", Inter, sans-serif;
+  background: var(--bg);
+  margin: 0;
+  padding: 30px;
+  color: #111;
+}
+h1 {
+  text-align: center;
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+.container {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 20px 25px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+  margin-bottom: 24px;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.btn:hover { background: #005fb3; }
+.btn input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+select {
+  padding: 8px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  font-size: 15px;
+}
+#fileInfo { 
+  margin-top: 8px; 
+  font-size: 14px; 
+  color: var(--muted);
+  font-weight: bold;
+}
+#errorMessage {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  display: none;
+}
+#errorMessage.error { background: #fdecea; color: var(--error); border: 1px solid var(--error); }
+#errorMessage.success { background: #eafaf1; color: var(--success); border: 1px solid var(--success); }
+#errorMessage.warning { background: #fef5e7; color: var(--warning); border: 1px solid var(--warning); }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+th, td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+}
+th {
+  background: var(--accent);
+  color: white;
+}
+.no-data {
+  text-align: center;
+  color: var(--muted);
+  padding: 16px;
+}
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.data-quality {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.data-quality h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+.data-quality ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.field-info {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f0f7ff;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.field-info ul {
+  margin: 5px 0;
+  padding-left: 20px;
+}
+.year-selector {
+  margin: 16px 0;
+  font-weight: bold;
+}
+.file-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+</style>
+</head>
+<body>
+<h1>Анализ выручки по городам (топ 10)</h1>
+
+<div class="container">
+  <div class="controls">
+    <div class="file-input-wrapper">
+      <label><strong>Выберите CSV-файл:</strong></label>
+      <button class="btn">Выберите файл
+        <input type="file" id="csvFile" accept=".csv">
+      </button>
+    </div>
+
+    <div>
+      <label><strong>Выберите год:</strong></label><br>
+      <select id="yearSelect"><option value="">— выберите —</option></select>
+    </div>
+
+    <div>
+      <label><strong>Метрика:</strong></label><br>
+      <select id="dataType">
+        <option value="revenue">Выручка</option>
+        <option value="orders">Количество заказов</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="fileInfo"></div>
+  <div id="errorMessage"></div>
+  <div id="fieldInfo" class="field-info" style="display: none;"></div>
+  <div id="dataQuality" class="data-quality" style="display: none;"></div>
+</div>
+
+<div class="container">
+  <h2>Топ-10 городов</h2>
+  <div id="yearSelector" class="year-selector" style="display: none;"></div>
+  <table id="resultsTable">
+    <thead>
+      <tr>
+        <th>№</th>
+        <th>Город</th>
+        <th>Штат</th>
+        <th>Выручка ($)</th>
+        <th>Доля (%)</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      <tr><td colspan="5" class="no-data">Загрузите CSV для анализа</td></tr>
+    </tbody>
+  </table>
+  <div class="stats">
+    <div id="totalRevenue">Общая выручка за 2017 год: —</div>
+    <div id="totalAllRevenue">Общая выручка за все года: —</div>
+    <div id="yearPercentage">Процент выручки за 2017 год от общей: —</div>
+  </div>
+</div>
+
+<script>
+const csvFileInput = document.getElementById('csvFile');
+const yearSelect = document.getElementById('yearSelect');
+const dataTypeSelect = document.getElementById('dataType');
+const fileInfo = document.getElementById('fileInfo');
+const errorMessage = document.getElementById('errorMessage');
+const fieldInfo = document.getElementById('fieldInfo');
+const dataQuality = document.getElementById('dataQuality');
+const yearSelector = document.getElementById('yearSelector');
+const tableBody = document.getElementById('tableBody');
+const totalRevenueElement = document.getElementById('totalRevenue');
+const totalAllRevenueElement = document.getElementById('totalAllRevenue');
+const yearPercentageElement = document.getElementById('yearPercentage');
+
+let csvData = [];
+let totalRevenueAllYears = 0;
+let stateData = {};
+
+csvFileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Обрезаем длинное имя файла как в примере
+  let displayName = file.name;
+  if (displayName.length > 20) {
+    displayName = displayName.substring(0, 10) + '...' + displayName.substring(displayName.length - 7);
+  }
+  fileInfo.innerHTML = `<strong>Выберите CSV-файл:</strong><br>Выберите файл ${displayName}`;
+  
+  showMessage('', '');
+  fieldInfo.style.display = 'none';
+  dataQuality.style.display = 'none';
+  yearSelector.style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = evt => handleCSV(evt.target.result);
+  reader.onerror = () => showMessage('Ошибка чтения файла', 'error');
+  reader.readAsText(file);
+});
+
+function handleCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length === 0) {
+    showMessage('Файл пустой', 'error');
+    return;
+  }
+  if (lines.length === 1 && lines[0].includes(',')) {
+    showMessage('Отсутствуют данные — только заголовки', 'error');
+    return;
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  
+  // Проверка обязательных полей
+  const required = ['name','segment','state','city','order_date','ship_mode','sales'];
+  const foundFields = [];
+  const missingFields = [];
+  
+  required.forEach(field => {
+    if (headers.includes(field)) {
+      foundFields.push(field);
+    } else {
+      missingFields.push(field);
+    }
+  });
+
+  // Показываем информацию о полях
+  showFieldInfo(foundFields, missingFields);
+  
+  if (missingFields.length > 0) {
+    showMessage(`CSV файл не содержит всех обязательных полей`, 'error');
+    return;
+  }
+
+  // Сброс данных
+  csvData = [];
+  totalRevenueAllYears = 0;
+  stateData = {};
+  
+  // Статистика обработки
+  let invalidDates = 0, missingVals = 0, outliers = 0;
+  let totalRows = lines.length - 1;
+  
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVLine(lines[i]);
+    if (vals.length !== headers.length) { 
+      missingVals++; 
+      continue; 
+    }
+    
+    const row = {};
+    headers.forEach((h, j) => row[h] = vals[j]?.trim() || '');
+    
+    // Проверка на отсутствующие значения в важных полях
+    if (!row.city || !row.order_date || !row.sales || !row.state) {
+      missingVals++;
+      continue;
+    }
+
+    // Проверка даты
+    let date;
+    try {
+      const dateStr = row.order_date;
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        date = new Date(dateStr);
+      } else if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+        const parts = dateStr.split('/');
+        date = new Date(parts[2], parts[0] - 1, parts[1]);
+      } else {
+        date = new Date(dateStr);
+      }
+      
+      if (isNaN(date.getTime()) || date.getFullYear() < 2000 || date.getFullYear() > 2030) {
+        throw new Error('Invalid date');
+      }
+    } catch (e) {
+      invalidDates++;
+      continue;
+    }
+
+    // Проверка числового значения продаж
+    let sales;
+    try {
+      sales = parseFloat(row.sales.replace(',', '.').replace(/\s/g, ''));
+      if (isNaN(sales)) {
+        throw new Error('Invalid sales number');
+      }
+    } catch (e) {
+      missingVals++;
+      continue;
+    }
+
+    // Обработка выбросов - считаем выбросами отрицательные и очень большие значения
+    const isOutlier = sales < 0 || sales > 1000000; // Более 1 миллиона считаем выбросом
+    if (isOutlier) { 
+      outliers++; 
+      continue; // Исключаем строки с выбросами из анализа
+    }
+
+    csvData.push({
+      order_date: date,
+      city: row.city,
+      state: row.state,
+      revenue: sales
+    });
+    
+    totalRevenueAllYears += sales;
+    
+    // Сохраняем данные по штатам для отображения
+    if (!stateData[row.city]) {
+      stateData[row.city] = row.state;
+    }
+  }
+
+  if (csvData.length === 0) {
+    showMessage('Нет корректных данных для анализа', 'error');
+    return;
+  }
+
+  // Показ статистики качества данных
+  showDataQuality(totalRows, invalidDates, missingVals, outliers, csvData.length);
+  
+  if (invalidDates > 0 || missingVals > 0 || outliers > 0) {
+    showMessage('Данные загружены с предупреждениями. Некоторые строки были исключены.', 'warning');
+  } else {
+    showMessage('Данные успешно загружены и проверены', 'success');
+  }
+
+  updateYearSelect();
+  updateResults();
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQuotes = false;
+  for (let ch of line) {
+    if (ch === '"') inQuotes = !inQuotes;
+    else if (ch === ',' && !inQuotes) { result.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  result.push(cur);
+  return result;
+}
+
+function showFieldInfo(found, missing) {
+  if (found.length === 0 && missing.length === 0) return;
+  
+  let html = '<h3>Информация о полях файла:</h3><ul>';
+  
+  found.forEach(field => {
+    html += `<li>✓ Поле "${field}" найдено</li>`;
+  });
+  
+  missing.forEach(field => {
+    html += `<li>✗ Обязательное поле "${field}" отсутствует</li>`;
+  });
+  
+  html += '</ul>';
+  fieldInfo.innerHTML = html;
+  fieldInfo.style.display = 'block';
+}
+
+function showMessage(text, type) {
+  if (!text) { 
+    errorMessage.style.display='none'; 
+    return; 
+  }
+  errorMessage.textContent = text;
+  errorMessage.className = type;
+  errorMessage.style.display = 'block';
+}
+
+function showDataQuality(totalRows, invalidDates, missingVals, outliers, validRows) {
+  dataQuality.innerHTML = `
+    <h3>Качество данных</h3>
+    <div><strong>Всего строк в файле:</strong> ${totalRows}</div>
+    ${invalidDates > 0 ? `<div>• Строк с некорректными датами: ${invalidDates}</div>` : ''}
+    ${missingVals > 0 ? `<div>• Строк с пропущенными значениями: ${missingVals}</div>` : ''}
+    ${outliers > 0 ? `<div>• Строк с выбросами в продажах: ${outliers}</div>` : ''}
+    <div><strong>Валидных строк после очистки:</strong> ${validRows}</div>
+  `;
+  dataQuality.style.display = 'block';
+}
+
+function updateYearSelect() {
+  const years = [...new Set(csvData.map(r => r.order_date.getFullYear()))].sort((a,b)=>b-a);
+  yearSelect.innerHTML = '<option value="">— выберите —</option>';
+  years.forEach(y => {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    yearSelect.appendChild(opt);
+  });
+  if (years.length) yearSelect.value = years[0];
+  
+  // Показываем селектор года как в примере
+  if (years.length > 0) {
+    yearSelector.innerHTML = `| <strong>Выберите год:</strong> | ${years[0]} |`;
+    yearSelector.style.display = 'block';
+  }
+}
+
+yearSelect.addEventListener('change', function() {
+  if (this.value) {
+    yearSelector.innerHTML = `| <strong>Выберите год:</strong> | ${this.value} |`;
+    yearSelector.style.display = 'block';
+  }
+  updateResults();
+});
+
+dataTypeSelect.addEventListener('change', updateResults);
+
+function updateResults() {
+  const year = +yearSelect.value;
+  if (!year) {
+    tableBody.innerHTML='<tr><td colspan="5" class="no-data">Выберите год</td></tr>';
+    totalRevenueElement.textContent = 'Общая выручка за 2017 год: —';
+    totalAllRevenueElement.textContent = 'Общая выручка за все года: —';
+    yearPercentageElement.textContent = 'Процент выручки за 2017 год от общей: —';
+    return;
+  }
+
+  const yearData = csvData.filter(r => r.order_date.getFullYear() === year);
+  if (!yearData.length) {
+    tableBody.innerHTML='<tr><td colspan="5" class="no-data">Нет данных за выбранный год</td></tr>';
+    totalRevenueElement.textContent = `Общая выручка за ${year} год: —`;
+    totalAllRevenueElement.textContent = 'Общая выручка за все года: —';
+    yearPercentageElement.textContent = `Процент выручки за ${year} год от общей: —`;
+    return;
+  }
+
+  const cityMap = {};
+  yearData.forEach(r => {
+    const key = r.city;
+    if (!cityMap[key]) cityMap[key] = {revenue:0,orders:0,state:r.state};
+    cityMap[key].revenue += r.revenue;
+    cityMap[key].orders++;
+  });
+
+  const rows = Object.entries(cityMap).map(([city,data])=>({
+    city,
+    state: data.state,
+    revenue: data.revenue,
+    orders: data.orders
+  }));
+  
+  const metric = dataTypeSelect.value;
+  rows.sort((a,b)=> metric==='revenue'?b.revenue-a.revenue : b.orders-a.orders);
+  const top = rows.slice(0,10);
+
+  // Расчет общей выручки за год
+  const totalYearRevenue = yearData.reduce((s,r)=>s+r.revenue,0);
+  
+  // Расчет доли за год от общей выручки
+  const yearPercentage = totalRevenueAllYears > 0 ? (totalYearRevenue / totalRevenueAllYears * 100) : 100;
+
+  tableBody.innerHTML='';
+  top.forEach((r, index)=>{
+    const share = totalYearRevenue > 0 ? (r.revenue / totalYearRevenue * 100).toFixed(2) : '0.00';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${index + 1}</td><td>${r.city}</td><td>${r.state}</td><td>${formatCurrency(r.revenue)}</td><td>${share}%</td>`;
+    tableBody.appendChild(tr);
+  });
+
+  totalRevenueElement.textContent = `Общая выручка за ${year} год: ${formatCurrency(totalYearRevenue)}`;
+  totalAllRevenueElement.textContent = `Общая выручка за все года: ${formatCurrency(totalRevenueAllYears)}`;
+  yearPercentageElement.textContent = `Процент выручки за ${year} год от общей: ${yearPercentage.toFixed(2)}%`;
+}
+
+function formatCurrency(num){
+  return num.toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2});
+}
+</script>
+</body>
+</html>
